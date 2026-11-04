@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Match3 Daily 🍬 — One Board, 25 Moves, Beat the World!</title>
+<meta name="description" content="Swap candies to match 3 or more. Daily mode: the whole world attacks the same board with exactly 25 moves.">
+<meta name="theme-color" content="#0f172a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Match3 Daily 🍬 — One Board, 25 Moves, Beat the World!">
+<meta property="og:description" content="Swap candies to match 3 or more. Daily mode: the whole world attacks the same board with exactly 25 moves.">
+<meta property="og:image" content="../assets/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Match3 Daily 🍬 — One Board, 25 Moves, Beat the World!">
+<meta name="twitter:description" content="Swap candies to match 3 or more. Daily mode: the whole world attacks the same board with exactly 25 moves.">
+<meta name="twitter:image" content="../assets/icon-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  #board{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:5px;touch-action:none;width:100%}
+  .tile{aspect-ratio:1;min-width:0;overflow:hidden;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    font-size:min(6.9vw,30px);line-height:1;cursor:pointer;user-select:none;border:1.5px solid #ffffff2a;transition:transform .12s,box-shadow .12s}
+  .tile:hover{transform:scale(1.06)}
+  .tile.sel{box-shadow:0 0 0 3px #facc15,0 0 18px #facc1588;transform:scale(1.13)}
+  .tile.hinted{box-shadow:0 0 0 3px #22c55e,0 0 16px #22c55e99;transform:scale(1.1)}
+  .tile.matched{animation:matchpop .24s ease forwards}
+  @keyframes matchpop{40%{transform:scale(1.3) rotate(8deg)}100%{transform:scale(0);opacity:0}}
+  .tile.fall{animation:fallin .22s ease}
+  @keyframes fallin{from{transform:translateY(-14px);opacity:.5}to{transform:translateY(0);opacity:1}}
+  .targets{display:flex;gap:7px;justify-content:center;flex-wrap:wrap;margin:8px 0 2px;font-size:12px;font-weight:900}
+  .targets span{background:#00000030;border:1px solid var(--line);padding:5px 10px;border-radius:999px;opacity:.55}
+  .targets span.hit{opacity:1;background:#14532d;border-color:#22c55e}
+  .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+  .toolbar button{border:1px solid var(--line);background:var(--card);color:#fff;border-radius:12px;padding:11px;font-weight:900;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar" aria-label="Arcade navigation"><a class="back" href="../index.html">⬅ Arcade</a><span class="brand">🎮 Play<b>Daily10</b></span><button class="iconbtn" id="soundBtn" title="Sound">🔊</button></nav>
+  <main>
+  <header class="hero">
+    <div style="font-size:42px">🍬</div>
+    <h1>Match<span class="grad">3</span> Daily</h1>
+    <p class="tag">Swap neighbors to match <b>3+ in a row</b>.<br>Daily: <b>same board, 25 moves</b> — the whole world vs one scoreboard.</p>
+  </header>
+  <noscript><p class="banner target">JavaScript is required to play this game. Please enable JavaScript and reload.</p></noscript>
+
+  <div id="challBanner"></div>
+  <div class="modes">
+    <button id="mDaily" class="active" onclick="setMode('daily')">☀️ Daily (25 moves) #<span id="dNum"></span></button>
+    <button id="mFree" onclick="setMode('free')">♾️ Free (40 moves)</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="score">0</b><span>Score</span></div>
+    <div class="stat"><b id="movesLeft">25</b><span>Moves Left</span></div>
+    <div class="stat"><b id="best">0</b><span>Best</span></div>
+    <div class="stat"><b id="streak">🔥0</b><span>Streak</span></div>
+  </div>
+  <div class="targets" id="targets">
+    <span data-t="1200">🥉 1,200</span><span data-t="2400">🥈 2,400</span><span data-t="3800">🥇 3,800</span><span data-t="5500">👑 5,500</span>
+  </div>
+
+  <div class="panel">
+    <div id="board"></div>
+    <div class="msg" id="msg"></div>
+    <div class="toolbar">
+      <button onclick="hint()">💡 Hint (−50 pts)</button>
+      <button onclick="newGame()">🔄 Restart</button>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="act green" onclick="doShare()">📲 Share Result</button>
+    <button class="act primary" onclick="newGame()">🎮 New Game</button>
+    <button class="act ghost" onclick="challengeMe()">⚔️ Challenge a Friend</button>
+    <button class="act ghost" onclick="PD.whatsapp(shareText())">💬 WhatsApp</button>
+  </div>
+
+  <details class="howto"><summary>🎮 How to Play (10 seconds)</summary>
+    <ul>
+      <li><b>Swipe</b> a candy (or <b>tap two neighbors</b>) to swap them.</li>
+      <li>Line up <b>3 or more</b> of a kind and they pop! New candies rain down.</li>
+      <li><b>4-in-a-row</b> and <b>5-in-a-row</b> pay big bonuses, and chain reactions multiply everything: Chain ×2, ×3… 🔥</li>
+      <li>Only swaps that make a match count as a move — failed swaps are free to try.</li>
+      <li>No moves possible? The board <b>auto-shuffles for free</b>. You can never get stuck.</li>
+      <li>☀️ <b>Daily:</b> identical starting board + identical refill stream for everyone — pure skill decides the score.</li>
+    </ul>
+  </details>
+  </main>
+  <footer>🧩 Puzzle • Game #7 of 10 • <a href="../index.html">Play the other 9 today →</a></footer>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal">
+  <div class="big" id="ovEmoji">🍬</div><h2 id="ovTitle"></h2><p id="ovText"></p>
+  <button class="act green" onclick="doShare()">📲 Share Result</button>
+  <button class="act primary" onclick="PD.hideModal();newGame()">▶️ Play Again</button>
+  <button class="act ghost" onclick="PD.hideModal()">👀 View Board</button>
+</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="../assets/engine.js"></script>
+<script>
+const GAME="match3", N=8, TYPES=6;
+const EMOJIS=["🍓","🍋","🍇","🍊","🫐","🥝"];
+const BGS=["linear-gradient(145deg,#7f1d2e,#450a16)","linear-gradient(145deg,#713f12,#422006)","linear-gradient(145deg,#4c1d95,#2e1065)",
+ "linear-gradient(145deg,#7c2d12,#431407)","linear-gradient(145deg,#1e3a8a,#172554)","linear-gradient(145deg,#14532d,#052e16)"];
+let board,score,movesLeft,mode="daily",rng,sel=null,hintCells=[],lock=false,over=false,currentSeed="",startXY=null,runId=0;
+let beat=PD.challengeBanner(), challSeed=PD.challengeSeed();
+document.getElementById("dNum").textContent=PD.dailyNumber();
+
+function setMode(m){mode=m; beat=(m==="daily")?PD.challengeBanner():null; if(m!=="daily"){const cb=document.getElementById("challBanner"); if(cb)cb.className="banner";}document.getElementById("mDaily").classList.toggle("active",m==="daily");
+  document.getElementById("mFree").classList.toggle("active",m==="free");newGame();}
+function rndType(){return Math.floor(rng()*TYPES)}
+function findMatches(bd){
+  const set=new Set(); let maxRun=0;
+  for(let r=0;r<N;r++){let run=1;for(let c=1;c<=N;c++){
+    if(c<N&&bd[r][c]===bd[r][c-1]&&bd[r][c]!==null)run++;
+    else{if(run>=3){maxRun=Math.max(maxRun,run);for(let k=1;k<=run;k++)set.add(r+","+(c-k))}run=1}}}
+  for(let c=0;c<N;c++){let run=1;for(let r=1;r<=N;r++){
+    if(r<N&&bd[r][c]===bd[r-1][c]&&bd[r][c]!==null)run++;
+    else{if(run>=3){maxRun=Math.max(maxRun,run);for(let k=1;k<=run;k++)set.add((r-k)+","+c)}run=1}}}
+  return{set,maxRun};
+}
+function hasMove(bd){
+  const dirs=[[0,1],[1,0]];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++)for(const[dr,dc]of dirs){
+    const r2=r+dr,c2=c+dc; if(r2>=N||c2>=N)continue;
+    [bd[r][c],bd[r2][c2]]=[bd[r2][c2],bd[r][c]];
+    const ok=findMatches(bd).set.size>0;
+    [bd[r][c],bd[r2][c2]]=[bd[r2][c2],bd[r][c]];
+    if(ok)return[[r,c],[r2,c2]];
+  } return null;
+}
+function genBoard(){
+  for(let attempt=0;attempt<60;attempt++){
+    const bd=[];
+    for(let r=0;r<N;r++){bd.push([]);for(let c=0;c<N;c++){
+      let t; do{t=rndType()}while((c>=2&&bd[r][c-1]===t&&bd[r][c-2]===t)||(r>=2&&bd[r-1][c]===t&&bd[r-2][c]===t));
+      bd[r].push(t);
+    }}
+    if(hasMove(bd))return bd;
+  }
+  // Guaranteed-valid deterministic fallback (verified: no matches, has a move)
+  const off=Math.floor(rng()*TYPES), bd=[];
+  for(let r=0;r<N;r++){bd.push([]);for(let c=0;c<N;c++)bd[r].push((Math.floor(r/2)+c+off)%TYPES)}
+  return bd;
+}
+function newGame(){
+  runId++; startXY=null;
+  currentSeed=(mode==="daily"&&challSeed)||(mode==="daily"?"match3-"+PD.todayStr():"match3-free-"+Date.now());
+  rng=PD.rngFrom(currentSeed);
+  board=genBoard();
+  score=0;movesLeft=mode==="daily"?25:40;sel=null;hintCells=[];lock=false;over=false;
+  PD.hideModal(); render();
+  setMsg(mode==="daily"?"☀️ Daily board #"+PD.dailyNumber()+" — 25 moves. Make them count!":"♾️ Free board — 40 moves of candy chaos!");
+}
+function setMsg(t){document.getElementById("msg").textContent=t}
+function stats(){
+  document.getElementById("score").textContent=PD.fmt(score);
+  document.getElementById("movesLeft").textContent=movesLeft;
+  document.getElementById("best").textContent=PD.fmt(PD.getBest(GAME,mode));
+  document.getElementById("streak").textContent="🔥"+PD.streak(GAME);
+  document.querySelectorAll("#targets span").forEach(s=>s.classList.toggle("hit",score>=+s.dataset.t));
+}
+function render(matchedSet=null){
+  const fk=document.activeElement?.dataset?.kb;
+  const b=document.getElementById("board"); b.innerHTML="";
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const d=document.createElement("div"); d.className="tile";
+    const v=board[r][c];
+    d.textContent=v===null?"":EMOJIS[v]; if(v!==null)d.style.background=BGS[v];
+    if(sel&&sel[0]===r&&sel[1]===c)d.classList.add("sel");
+    if(hintCells.some(([hr,hc])=>hr===r&&hc===c))d.classList.add("hinted");
+    if(matchedSet&&matchedSet.has(r+","+c))d.classList.add("matched");
+    d.tabIndex=(r===0&&c===0)?0:-1; d.dataset.kb="tile-"+r+"-"+c;
+    d.setAttribute("role","button");
+    d.setAttribute("aria-label","Row "+(r+1)+", column "+(c+1)+(v===null?", empty":", "+["strawberry","lemon","grapes","orange","blueberries","kiwi"][v])+(sel&&sel[0]===r&&sel[1]===c?", selected":""));
+    d.addEventListener("pointerdown",e=>{if(e.button>0)return;startXY={x:e.clientX,y:e.clientY,r,c}});
+    d.addEventListener("pointerup",e=>onTapOrSwipe(e,r,c));
+    d.addEventListener("pointercancel",()=>{startXY=null});
+    d.addEventListener("keydown",e=>{
+      if(e.code==="Space"||e.code==="Enter"){e.preventDefault();tapTile(r,c);return}
+      const mv={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]}[e.code];
+      if(mv){e.preventDefault();const nr=Math.max(0,Math.min(N-1,r+mv[0])),nc=Math.max(0,Math.min(N-1,c+mv[1]));
+        document.querySelector(`[data-kb="tile-${nr}-${nc}"]`)?.focus();}
+    });
+    b.appendChild(d);
+  } if(fk)document.querySelector(`[data-kb="${fk}"]`)?.focus({preventScroll:true});
+  stats();
+}
+function tapTile(r,c){
+  if(lock||over)return;
+  if(!sel){sel=[r,c];hintCells=[];PD.sfx.click();render();return}
+  if(sel[0]===r&&sel[1]===c){sel=null;render();return}
+  const adjacent=Math.abs(sel[0]-r)+Math.abs(sel[1]-c)===1;
+  if(adjacent){const from=sel;sel=null;trySwap(from,[r,c])}
+  else{sel=[r,c];hintCells=[];PD.sfx.click();render()}
+}
+async function onTapOrSwipe(e,r,c){
+  if(lock||over||!startXY)return;
+  const dx=e.clientX-startXY.x, dy=e.clientY-startXY.y; const sr=startXY.r, sc=startXY.c; startXY=null; r=sr; c=sc;
+  if(Math.hypot(dx,dy)>26){ // swipe
+    const horiz=Math.abs(dx)>Math.abs(dy);
+    const r2=r+(horiz?0:Math.sign(dy)), c2=c+(horiz?Math.sign(dx):0);
+    if(r2>=0&&r2<N&&c2>=0&&c2<N)trySwap([r,c],[r2,c2]);
+    return;
+  }
+  tapTile(r,c);
+}
+async function trySwap(a,b){
+  if(lock||over)return; lock=true; hintCells=[]; const myRun=runId;
+  [board[a[0]][a[1]],board[b[0]][b[1]]]=[board[b[0]][b[1]],board[a[0]][a[1]]];
+  render(); PD.sfx.pop(4); await PD.sleep(170);
+  if(myRun!==runId)return;
+  if(!findMatches(board).set.size){
+    [board[a[0]][a[1]],board[b[0]][b[1]]]=[board[b[0]][b[1]],board[a[0]][a[1]]];
+    render(); setMsg("🚫 No match — that swap was free, try another!"); PD.sfx.bad(); lock=false; return;
+  }
+  movesLeft--;
+  let chain=0;
+  while(true){
+    const {set,maxRun}=findMatches(board);
+    if(!set.size)break;
+    chain++;
+    let pts=set.size*10*chain;
+    if(maxRun>=4)pts+=(maxRun-3)*60*chain;
+    if(set.size>=6)pts+=50*chain;
+    score+=pts;
+    PD.sfx.pop(3+chain);
+    setMsg(chain>1?"🔥 CHAIN ×"+chain+"! +"+PD.fmt(pts):"✨ +"+PD.fmt(pts)+(maxRun>=4?" • "+maxRun+" in a row!":""));
+    if(chain>=3||maxRun>=5)PD.celebrate(["🍬","🍓","⭐"],14);
+    render(set); await PD.sleep(250);
+    if(myRun!==runId)return;
+    set.forEach(k=>{const[r,c]=k.split(",").map(Number);board[r][c]=null});
+    // gravity + refill
+    for(let c=0;c<N;c++){
+      const stack=[]; for(let r=N-1;r>=0;r--)if(board[r][c]!==null)stack.push(board[r][c]);
+      for(let r=N-1,i=0;r>=0;r--,i++)board[r][c]=i<stack.length?stack[i]:rndType();
+    }
+    render(); await PD.sleep(190);
+    if(myRun!==runId)return;
+  }
+  PD.saveBest(GAME,score,mode);
+  if(movesLeft<=0){lock=false;return gameOver()}
+  if(!hasMove(board)){
+    setMsg("🔀 No possible moves — free shuffle!"); PD.sfx.good(); await PD.sleep(650);
+    if(myRun!==runId)return;
+    let vals=board.flat(), shuffled=false;
+    for(let tries=0;tries<80&&!shuffled;tries++){
+      for(let i=vals.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[vals[i],vals[j]]=[vals[j],vals[i]]}
+      const nb=[]; for(let r=0;r<N;r++)nb.push(vals.slice(r*N,r*N+N));
+      if(!findMatches(nb).set.size&&hasMove(nb)){board=nb;shuffled=true}
+    }
+    if(!shuffled)board=genBoard(); // never leave the player stuck
+    render();
+  }
+  lock=false; stats();
+}
+function hint(){
+  if(lock||over)return;
+  const mv=hasMove(board);
+  if(!mv){PD.toast("No moves — board will shuffle");return}
+  if(score>=50)score-=50;
+  hintCells=mv; sel=null; render();
+  setMsg("💡 Swap the two glowing candies (−50 pts)");
+  const hr=runId; setTimeout(()=>{if(hr===runId){hintCells=[];render()}},1600);
+}
+function gameOver(){
+  over=true; if(mode==="daily")PD.markPlayed(GAME);
+  PD.saveBest(GAME,score,mode); stats();
+  const medal=score>=5500?"👑 CANDY ROYALTY!":score>=3800?"🥇 Gold!":score>=2400?"🥈 Silver!":score>=1200?"🥉 Bronze!":"🍬 Sweet effort!";
+  PD.celebrate(["🍬","🍓","🍋"],score>=2400?26:10);
+  PD.showModal("🍬","Out of Moves!",
+   "Final score: <b>"+PD.fmt(score)+"</b><br>"+medal+PD.challengeResultLine(score,beat)+
+   "<br>Pro tip: play from the bottom — falling candies create free chain reactions.");
+}
+function shareText(){
+  return "🍬 Match3 "+(mode==="daily"?"Daily #"+PD.dailyNumber()+" (25 moves)":"Free (40 moves)")+
+   "\nScore: "+PD.fmt(score)+" • 🔥"+PD.streak(GAME)+"\n\n"+
+   board.map(r=>r.map(v=>EMOJIS[v]).join("")).join("\n")+"\n\nSame board, same candies — beat my score! 👇"}
+function challengeMe(){if(mode!=="daily"){PD.toast("☀️ Switch to Daily mode to create a fair, same-rules challenge");return} PD.challengeLink(score,currentSeed)}
+function doShare(){PD.share(shareText(),"Match3 Daily 🍬")}
+newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StackUp Daily 🏗️ — How Tall Can You Build?</title>
+<meta name="description" content="Tap to drop the sliding block. Perfect timing keeps your tower wide — misses get sliced away. A new speed pattern every day!">
+<meta name="theme-color" content="#0f172a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="StackUp Daily 🏗️ — How Tall Can You Build?">
+<meta property="og:description" content="Tap to drop the sliding block. Perfect timing keeps your tower wide — misses get sliced away. A new speed pattern every day!">
+<meta property="og:image" content="../assets/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="StackUp Daily 🏗️ — How Tall Can You Build?">
+<meta name="twitter:description" content="Tap to drop the sliding block. Perfect timing keeps your tower wide — misses get sliced away. A new speed pattern every day!">
+<meta name="twitter:image" content="../assets/icon-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/style.css">
+<style>.toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+ .toolbar button{border:1px solid var(--line);background:var(--card);color:#fff;border-radius:12px;padding:11px;font-weight:900;cursor:pointer}</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar" aria-label="Arcade navigation"><a class="back" href="../index.html">⬅ Arcade</a><span class="brand">🎮 Play<b>Daily10</b></span><button class="iconbtn" id="soundBtn" title="Sound">🔊</button></nav>
+  <main>
+  <header class="hero">
+    <div style="font-size:42px">🏗️</div>
+    <h1>Stack<span class="grad">Up</span> Daily</h1>
+    <p class="tag">The block slides left ↔ right. <b>Tap</b> to drop it.<br>Only the overlapping part survives — <b>how tall can you go?</b></p>
+  </header>
+  <noscript><p class="banner target">JavaScript is required to play this game. Please enable JavaScript and reload.</p></noscript>
+
+  <div id="challBanner"></div>
+  <div class="modes">
+    <button id="mDaily" class="active" onclick="setMode('daily')">☀️ Daily #<span id="dNum"></span></button>
+    <button id="mFree" onclick="setMode('free')">♾️ Free Play</button>
+    <button id="mZen" onclick="setMode('zen')">🧘 Zen (relaxed)</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="height">0</b><span>Height</span></div>
+    <div class="stat"><b id="score">0</b><span>Score</span></div>
+    <div class="stat"><b id="best">0</b><span>Best</span></div>
+    <div class="stat"><b id="perfects">⭐0</b><span>Perfects</span></div>
+  </div>
+
+  <div class="panel">
+    <canvas class="game" id="cv" tabindex="0" role="img" aria-label="StackUp tower game. Tap or press Space to drop the moving block." width="480" height="620"></canvas>
+    <div class="toolbar">
+      <button onclick="togglePause()" id="pauseBtn">⏸️ Pause</button>
+      <button onclick="newGame()">🔄 Restart</button>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="act green" onclick="doShare()">📲 Share Result</button>
+    <button class="act primary" onclick="newGame()">🏗️ Build Again</button>
+    <button class="act ghost" onclick="challengeMe()">⚔️ Challenge a Friend</button>
+    <button class="act ghost" onclick="PD.whatsapp(shareText())">💬 WhatsApp</button>
+  </div>
+
+  <details class="howto"><summary>🎮 How to Play (10 seconds)</summary>
+    <ul>
+      <li>Watch the block slide. <b>Tap / Click / Space</b> to drop it onto the tower.</li>
+      <li>Whatever hangs over the edge gets <b>sliced off forever</b> — your next block is that much smaller.</li>
+      <li>Land a <b>⭐ PERFECT</b> (dead-center) and your block <b>grows back</b> a little + streak bonus!</li>
+      <li>Miss the tower completely and the run ends. Speed rises as you climb.</li>
+      <li>☀️ <b>Daily:</b> today has its own speed &amp; color pattern (weekends are spicier 🌶️). 🧘 <b>Zen:</b> half speed, pure relaxation — scores don't record streaks.</li>
+    </ul>
+  </details>
+  </main>
+  <footer>⏱️ Timing &amp; Skill • Game #6 of 10 • <a href="../index.html">Play the other 9 today →</a></footer>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal">
+  <div class="big" id="ovEmoji">🏗️</div><h2 id="ovTitle"></h2><p id="ovText"></p>
+  <button class="act green" onclick="doShare()">📲 Share Result</button>
+  <button class="act primary" onclick="PD.hideModal();newGame()">▶️ Build Again</button>
+  <button class="act ghost" onclick="PD.hideModal()">👀 View Tower</button>
+</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="../assets/engine.js"></script>
+<script>
+const GAME="stackup", cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+const W=cv.width,H=cv.height,BH=30,BASE_W=240;
+let mode="daily",state="ready",blocks,moving,dir,speed,score,heightN=0,perfectN,perfectStreak,rng,lastTs,falling,currentSeed="",runId=0;
+let beat=PD.challengeBanner(), challSeed=PD.challengeSeed();
+document.getElementById("dNum").textContent=PD.dailyNumber();
+function hueFor(level){return (level*14+(seedHue||200))%360}
+let seedHue=200;
+function setMode(m){mode=m; beat=(m==="daily")?PD.challengeBanner():null; if(m!=="daily"){const cb=document.getElementById("challBanner"); if(cb)cb.className="banner";}
+  document.getElementById("mDaily").classList.toggle("active",m==="daily");
+  document.getElementById("mFree").classList.toggle("active",m==="free");
+  document.getElementById("mZen").classList.toggle("active",m==="zen"); newGame();}
+function seedDateStr(){
+  const m=typeof currentSeed==="string"&&currentSeed.match(/^stackup-(\d{4}-\d{2}-\d{2})$/);
+  if(!m)return null;
+  const d=new Date(m[1]+"T00:00:00Z");
+  return (!Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===m[1])?m[1]:null;
+}
+function dailyBaseSpeed(){
+  if(mode==="zen")return 0.55;
+  if(mode!=="daily")return 1;
+  // A challenge link replays the CHALLENGER's weekday speed, not today's
+  const ds=seedDateStr();
+  const dow=ds?new Date(ds+"T00:00:00Z").getUTCDay():new Date().getUTCDay(); // Mon gentle → weekend spicy
+  return [1.25,0.85,0.92,1.0,1.08,1.16,1.25][dow];
+}
+function newGame(){
+  runId++; flashMsg="";
+  currentSeed=(mode==="daily"&&challSeed)||(mode==="daily"?"stackup-"+PD.todayStr():"stackup-"+mode+"-"+Date.now());
+  rng=PD.rngFrom(currentSeed); seedHue=Math.floor(rng()*360);
+  blocks=[{x:(W-BASE_W)/2,w:BASE_W,level:0}];
+  heightN=0;perfectN=0;perfectStreak=0;score=0;falling=null;state="ready";
+  speed=2.1*dailyBaseSpeed(); dir=rng()<0.5?1:-1;
+  spawnMoving();
+  document.getElementById("pauseBtn").textContent="⏸️ Pause";
+  PD.hideModal(); stats(); draw();
+}
+function spawnMoving(){
+  const below=blocks[blocks.length-1];
+  moving={x:dir>0?0:W-below.w,w:below.w,level:blocks.length};
+}
+function bestVariant(){return mode==="zen"?"free":mode}
+function stats(){
+  document.getElementById("height").textContent=heightN;
+  document.getElementById("score").textContent=PD.fmt(score);
+  document.getElementById("best").textContent=PD.fmt(PD.getBest(GAME,bestVariant()));
+  document.getElementById("perfects").textContent="⭐"+perfectN;
+}
+function startIfNeeded(){if(state==="ready"){state="playing";lastTs=performance.now();requestAnimationFrame(loop)}}
+cv.addEventListener("pointerdown",e=>{if(e.button>0)return;e.preventDefault();if(state==="paused"||state==="dead")return;if(state==="ready"){startIfNeeded();return}drop()});
+addEventListener("keydown",e=>{if(e.code==="Space"&&/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;if(e.code==="Space"||e.code==="ArrowDown"){e.preventDefault();if(state==="ready"){startIfNeeded();return}if(state==="playing")drop()}
+  if(e.code==="KeyP")togglePause()});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&state==="playing")togglePause()});
+function togglePause(){
+  if(state==="playing"){state="paused";document.getElementById("pauseBtn").textContent="▶️ Resume";draw()}
+  else if(state==="paused"){state="playing";document.getElementById("pauseBtn").textContent="⏸️ Pause";lastTs=performance.now();requestAnimationFrame(loop)}
+}
+function loop(ts){
+  if(state!=="playing")return;
+  const dt=Math.min(0.05,(ts-lastTs)/1000); lastTs=ts;
+  moving.x+=dir*speed*180*dt;
+  if(moving.x<=0){moving.x=0;dir=1} if(moving.x+moving.w>=W){moving.x=W-moving.w;dir=-1}
+  if(falling){falling.y+=620*dt;falling.rot+=falling.vr*dt;if(falling.y>H+80)falling=null}
+  draw(); requestAnimationFrame(loop);
+}
+function drop(){
+  const below=blocks[blocks.length-1];
+  const left=Math.max(moving.x,below.x), right=Math.min(moving.x+moving.w,below.x+below.w);
+  const overlap=right-left;
+  if(overlap<=0){
+    falling={x:moving.x,w:moving.w,y:yOf(moving.level+1)+4,level:moving.level,rot:0,vr:(moving.x<below.x?-2.4:2.4)};
+    return gameOver();
+  }
+  const offset=Math.abs(moving.x-below.x);
+  const perfect=offset<=7;
+  // sliced-off piece animation
+  if(!perfect){
+    if(moving.x<below.x)falling={x:moving.x,w:below.x-moving.x,y:yOf(moving.level+1)+4,level:moving.level,rot:0,vr:-2.2};
+    else if(moving.x+moving.w>below.x+below.w)falling={x:below.x+below.w,w:(moving.x+moving.w)-(below.x+below.w),y:yOf(moving.level+1)+4,level:moving.level,rot:0,vr:2.2};
+  }
+  let nw=overlap, nx=left;
+  heightN++; score+=10;
+  if(perfect){
+    perfectN++; perfectStreak++;
+    nw=Math.min(BASE_W,below.w+12); nx=Math.max(0,Math.min(W-nw,below.x+(below.w-nw)/2));
+    score+=15+perfectStreak*5;
+    PD.sfx.good();
+    flashMsg="⭐ PERFECT! ×"+perfectStreak+" streak  +"+(15+perfectStreak*5);
+  } else { perfectStreak=0; PD.sfx.pop(3); flashMsg=""; }
+  blocks.push({x:nx,w:nw,level:moving.level});
+  speed=Math.min(5.2*dailyBaseSpeed(),speed+0.055*dailyBaseSpeed());
+  dir=(heightN%2===0)?1:-1;
+  spawnMoving(); stats(); draw();
+  clearTimeout(drop._t); drop._t=setTimeout(()=>{flashMsg="";if(state!=="playing")draw()},900);
+}
+let flashMsg="";
+function yOf(level){
+  const camRow=Math.max(0,blocks.length-13);
+  return H-70-(level-camRow)*BH;
+}
+function blockColor(level){return `hsl(${hueFor(level)},78%,${52+((level*7)%14)}%)`}
+function drawBlock(x,y,w,level,alpha=1){
+  ctx.save(); ctx.globalAlpha=alpha;
+  const g=ctx.createLinearGradient(x,y,x+w,y+BH);
+  g.addColorStop(0,blockColor(level)); g.addColorStop(1,`hsl(${hueFor(level)+28},75%,42%)`);
+  ctx.fillStyle=g;
+  ctx.beginPath(); ctx.roundRect(x,y-BH+4,w,BH-4,7); ctx.fill();
+  ctx.strokeStyle="#ffffff55"; ctx.stroke();
+  ctx.restore();
+}
+function draw(){
+  const grd=ctx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,"#111c3f");grd.addColorStop(.55,"#22356e");grd.addColorStop(1,"#0a0f24");
+  ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#ffffff16";
+  for(let i=0;i<9;i++){ctx.fillRect(0,H-70-i*BH*3,W,1)}
+  // ground
+  ctx.fillStyle="#0f172a";ctx.fillRect(0,H-66,W,66);
+  ctx.fillStyle="#facc15";ctx.fillRect(0,H-70,W,4);
+  // height markers
+  ctx.fillStyle="#ffffff88";ctx.font="800 12px system-ui";ctx.textAlign="left";
+  for(let m=10;m<=Math.max(50,heightN+10);m+=10){const y=yOf(m);if(y>30&&y<H-80)ctx.fillText("— "+m,8,y-6)}
+  blocks.forEach(b=>drawBlock(b.x,yOf(b.level+1)+BH,b.w,b.level));
+  if(falling){ctx.save();ctx.translate(falling.x+falling.w/2,falling.y);ctx.rotate(falling.rot);
+    drawBlock(-falling.w/2,BH-4,falling.w,falling.level,.85);ctx.restore()}
+  if(state!=="dead"&&moving)drawBlock(moving.x,yOf(moving.level+1)+BH,moving.w,moving.level);
+  // guide line
+  if(state==="playing"&&moving){ctx.save();ctx.strokeStyle="#ffffff33";ctx.setLineDash([4,7]);
+    ctx.beginPath();ctx.moveTo(moving.x+moving.w/2,yOf(moving.level+1)+BH);ctx.lineTo(moving.x+moving.w/2,H-70);ctx.stroke();ctx.restore()}
+  ctx.textAlign="center";
+  if(state==="ready"){ctx.fillStyle="#fff";ctx.font="900 24px system-ui";ctx.fillText("👆 TAP TO START BUILDING",W/2,110);
+    ctx.font="700 15px system-ui";ctx.fillText(mode==="daily"?((seedDateStr()&&seedDateStr()!==PD.todayStr())?"Challenge speed: ":"Today's speed: ")+Math.round(dailyBaseSpeed()*100)+"% — same for everyone":"Stack as tall as you can!",W/2,140)}
+  if(flashMsg&&state==="playing"){ctx.fillStyle="#fde68a";ctx.font="900 21px system-ui";ctx.fillText(flashMsg,W/2,84)}
+  if(state==="paused"){ctx.fillStyle="#00000088";ctx.fillRect(0,0,W,H);ctx.fillStyle="#fff";ctx.font="900 32px system-ui";ctx.fillText("⏸️ PAUSED",W/2,H/2)}
+}
+function gameOver(){
+  state="dead";
+  if(mode==="daily")PD.markPlayed(GAME);
+  if(mode!=="zen")PD.saveBest(GAME,score,bestVariant());
+  stats(); PD.sfx.bad();
+  // let the missed block fall, then show results (cancelled if player restarts)
+  const myRun=runId;
+  const anim=t0=>{const stepFn=ts=>{
+    if(myRun!==runId)return;
+    if(falling){falling.y+=9;falling.rot+=falling.vr*0.016;if(falling.y>H+90)falling=null}
+    draw(); if(ts-t0<650)requestAnimationFrame(stepFn); else showEnd();};requestAnimationFrame(stepFn)};
+  anim(performance.now());
+}
+function showEnd(){
+  const tier=heightN>=60?"🏆 SKYSCRAPER LEGEND!":heightN>=40?"🥇 Master Builder!":heightN>=25?"🥈 Tower Pro!":heightN>=12?"🥉 Solid stack!":"🌱 Every skyscraper starts somewhere!";
+  PD.showModal("🏗️","Tower Height: "+heightN,
+   "Score: <b>"+PD.fmt(score)+"</b> • ⭐ Perfect drops: "+perfectN+"<br>"+tier+PD.challengeResultLine(score,beat)+
+   "<br>Tip: drop a hair BEFORE the center — your eyes lag a few milliseconds 😉");
+}
+function towerEmoji(){
+  const rows=blocks.slice(-9).reverse().map(b=>{
+    const filled=Math.max(1,Math.round(b.w/BASE_W*7));
+    const leftPad=Math.max(0,Math.round((b.x)/W*7));
+    return "⬛".repeat(leftPad)+"🟦".repeat(filled);
+  });
+  return rows.join("\n");
+}
+function shareText(){
+  return "🏗️ StackUp "+(mode==="daily"?"Daily #"+PD.dailyNumber():mode==="zen"?"Zen":"Free Play")+
+   "\nHeight: "+heightN+" • Score: "+PD.fmt(score)+" • ⭐ Perfects: "+perfectN+" • 🔥"+PD.streak(GAME)+
+   "\n\n"+towerEmoji()+"\n\nSame speed pattern — build taller than me! 👇"}
+function challengeMe(){if(mode!=="daily"){PD.toast("☀️ Switch to Daily mode to create a fair, same-rules challenge");return} PD.challengeLink(score,currentSeed)}
+function doShare(){PD.share(shareText(),"StackUp Daily 🏗️")}
+newGame();
+</script>
+</body>
+</html>

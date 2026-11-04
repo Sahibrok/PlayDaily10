@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MergeMelon Daily 🍉 — Merge Fruits, Grow the Watermelon!</title>
+<meta name="description" content="Drop fruits into columns, merge matching pairs, and evolve all the way to the watermelon. A new shared board for the whole world every day!">
+<meta name="theme-color" content="#0f172a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MergeMelon Daily 🍉 — Merge Fruits, Grow the Watermelon!">
+<meta property="og:description" content="Drop fruits into columns, merge matching pairs, and evolve all the way to the watermelon. A new shared board for the whole world every day!">
+<meta property="og:image" content="../assets/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MergeMelon Daily 🍉 — Merge Fruits, Grow the Watermelon!">
+<meta name="twitter:description" content="Drop fruits into columns, merge matching pairs, and evolve all the way to the watermelon. A new shared board for the whole world every day!">
+<meta name="twitter:image" content="../assets/icon-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .nextbar{display:flex;align-items:center;justify-content:space-between;background:#00000030;border:1px solid var(--line);border-radius:16px;padding:9px 15px;margin:8px 0}
+  .nextbig{font-size:42px;line-height:1;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.13)}}
+  .queue{font-size:22px;letter-spacing:4px}
+  .colhint{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding:0 9px;margin-bottom:4px;text-align:center;font-size:14px;opacity:.7}
+  #board{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+  .cell{aspect-ratio:1;border-radius:15px;background:#ffffff10;border:1px solid #ffffff12;display:flex;align-items:center;justify-content:center;font-size:min(8.4vw,37px);cursor:pointer;user-select:none;transition:background .1s}
+  .cell:hover{background:#ffffff22}
+  .cell.filled{background:linear-gradient(180deg,#ffffff,#e2e8f0);box-shadow:0 3px 0 #0005}
+  .cell.pop{animation:pop .28s ease}
+  @keyframes pop{0%{transform:scale(.45)}60%{transform:scale(1.22)}100%{transform:scale(1)}}
+  .cell.drop{animation:drp .18s ease}
+  @keyframes drp{from{transform:translateY(-18px);opacity:.4}to{transform:translateY(0);opacity:1}}
+  .evo{background:#00000028;border:1px solid var(--line);border-radius:14px;padding:9px 11px;margin:11px 0;text-align:center;font-size:19px;overflow-x:auto;white-space:nowrap}
+  .evo small{display:block;font-size:10.5px;color:var(--muted);white-space:normal;font-weight:800;letter-spacing:.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar" aria-label="Arcade navigation"><a class="back" href="../index.html">⬅ Arcade</a><span class="brand">🎮 Play<b>Daily10</b></span><button class="iconbtn" id="soundBtn" title="Sound">🔊</button></nav>
+  <main>
+  <header class="hero">
+    <div style="font-size:42px">🍉</div>
+    <h1>Merge<span class="grad">Melon</span> Daily</h1>
+    <p class="tag">Merge two matching fruits to evolve the next one:<br>🍒→🍓→🍇→🍊→🍋→🥝→🍎→🍐→🍑→🍍→🍈→<b>🍉 WATERMELON!</b></p>
+  </header>
+  <noscript><p class="banner target">JavaScript is required to play this game. Please enable JavaScript and reload.</p></noscript>
+
+  <div id="challBanner"></div>
+  <div class="modes">
+    <button id="mDaily" class="active" onclick="setMode('daily')">☀️ Daily #<span id="dNum"></span></button>
+    <button id="mFree" onclick="setMode('free')">♾️ Free Play</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b id="score">0</b><span>Score</span></div>
+    <div class="stat"><b id="best">0</b><span>Best</span></div>
+    <div class="stat"><b id="moves">0</b><span>Moves</span></div>
+    <div class="stat"><b id="streak">🔥0</b><span>Streak</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="nextbar">
+      <div><div class="subtxt" style="text-align:left">NEXT — tap a column ⬇️</div><div class="nextbig" id="nextFruit">🍒</div></div>
+      <div style="text-align:right"><div class="subtxt" style="text-align:right">Coming up</div><div class="queue" id="queue"></div><div class="subtxt" style="text-align:right" id="topFruit">Biggest: —</div></div>
+    </div>
+    <div class="colhint"><span>⬇️</span><span>⬇️</span><span>⬇️</span><span>⬇️</span><span>⬇️</span><span>⬇️</span></div>
+    <div id="board"></div>
+    <div class="msg" id="msg"></div>
+    <div class="evo" id="evo"></div>
+  </div>
+
+  <div class="btns">
+    <button class="act green" onclick="doShare()">📲 Share Result</button>
+    <button class="act primary" onclick="newGame()">🔄 New Game</button>
+    <button class="act ghost" onclick="challengeMe()">⚔️ Challenge a Friend</button>
+    <button class="act ghost" onclick="PD.whatsapp(shareText())">💬 WhatsApp</button>
+  </div>
+
+  <details class="howto"><summary>🎮 How to Play (10 seconds)</summary>
+    <ul>
+      <li><b>Tap any column</b> — the fruit drops to the bottom.</li>
+      <li>Two <b>matching fruits touching</b> (up/down/left/right) merge into the next bigger fruit. 🍒+🍒 = 🍓</li>
+      <li>Chain merges build <b>COMBOS</b> ×2, ×3… for bonus points.</li>
+      <li>Create a <b>🍉 Watermelon</b> to win. If the board fills up — game over!</li>
+      <li>☀️ <b>Daily mode:</b> everyone on Earth gets the fruits in the same order today.</li>
+      <li>Secret: two watermelons merging explode for a <b>5,000-point bonus</b> 💥</li>
+    </ul>
+  </details>
+  </main>
+  <footer>🧩 Puzzle • Game #2 of 10 • <a href="../index.html">Play the other 9 today →</a></footer>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal">
+  <div class="big" id="ovEmoji">🍉</div><h2 id="ovTitle"></h2><p id="ovText"></p>
+  <button class="act green" onclick="doShare()">📲 Share Result</button>
+  <button class="act primary" onclick="PD.hideModal();newGame()">▶️ Play Again</button>
+  <button class="act ghost" onclick="PD.hideModal()">👀 View Board</button>
+</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="../assets/engine.js"></script>
+<script>
+const GAME="mergemelon";
+const FRUITS=["🍒","🍓","🍇","🍊","🍋","🥝","🍎","🍐","🍑","🍍","🍈","🍉"];
+const NAMES=["Cherry","Strawberry","Grapes","Orange","Lemon","Kiwi","Apple","Pear","Peach","Pineapple","Melon","WATERMELON"];
+const COLS=6, ROWS=7;
+let grid,score,moves,mode="daily",rng,queue=[],lock=false,won=false,currentSeed="",runId=0;
+let beat=PD.challengeBanner(), challSeed=PD.challengeSeed();
+document.getElementById("dNum").textContent=PD.dailyNumber();
+document.getElementById("evo").innerHTML="<small>EVOLUTION — MERGE 2 OF A KIND TO GROW THE NEXT</small>"+FRUITS.join(" → ");
+
+function nextLevel(){const r=rng();return r<.40?0:r<.70?1:r<.90?2:3}
+function fillQueue(){while(queue.length<4)queue.push(nextLevel())}
+function setMode(m){mode=m; beat=(m==="daily")?PD.challengeBanner():null; if(m!=="daily"){const cb=document.getElementById("challBanner"); if(cb)cb.className="banner";}document.getElementById("mDaily").classList.toggle("active",m==="daily");
+  document.getElementById("mFree").classList.toggle("active",m==="free");newGame();}
+function newGame(){
+  runId++;
+  grid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  score=0;moves=0;won=false;lock=false;queue=[];
+  currentSeed = (mode==="daily"&&challSeed) || (mode==="daily" ? "mergemelon-"+PD.todayStr() : "melon-free-"+Date.now());
+  rng=PD.rngFrom(currentSeed); fillQueue(); PD.hideModal(); render();
+  document.getElementById("msg").textContent = mode==="daily" ? "☀️ Daily board #"+PD.dailyNumber()+" — same fruits for everyone!" : "♾️ Free play — endless fruit fun!";
+}
+function stats(){
+  document.getElementById("score").textContent=PD.fmt(score);
+  document.getElementById("best").textContent=PD.fmt(PD.get(PD.bestKey(GAME)));
+  document.getElementById("moves").textContent=moves;
+  document.getElementById("streak").textContent="🔥"+PD.streak(GAME);
+  document.getElementById("nextFruit").textContent=FRUITS[queue[0]];
+  document.getElementById("queue").textContent=queue.slice(1,4).map(i=>FRUITS[i]).join("");
+  let top=-1;grid.flat().forEach(v=>{if(v!==null&&v>top)top=v});
+  document.getElementById("topFruit").textContent=top<0?"Biggest: —":"Biggest: "+FRUITS[top]+" "+NAMES[top];
+}
+function render(pop,drop){
+  const b=document.getElementById("board");b.innerHTML="";
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    const d=document.createElement("div");d.className="cell";const v=grid[r][c];
+    if(v!==null){d.classList.add("filled");d.textContent=FRUITS[v];d.title=NAMES[v]}
+    if(pop&&pop[0]===r&&pop[1]===c)d.classList.add("pop");
+    if(drop&&drop[0]===r&&drop[1]===c)d.classList.add("drop");
+    d.onclick=()=>dropIn(c);b.appendChild(d);
+  } stats();
+}
+function gravity(){for(let c=0;c<COLS;c++){const st=[];for(let r=ROWS-1;r>=0;r--)if(grid[r][c]!==null)st.push(grid[r][c]);
+  for(let r=ROWS-1,i=0;r>=0;r--,i++)grid[r][c]=i<st.length?st[i]:null}}
+function findPair(){for(let r=ROWS-1;r>=0;r--)for(let c=0;c<COLS;c++){const v=grid[r][c];if(v===null)continue;
+  if(r+1<ROWS&&grid[r+1][c]===v)return[[r+1,c],[r,c]];
+  if(c+1<COLS&&grid[r][c+1]===v)return[[r,c],[r,c+1]]}return null}
+async function dropIn(c){
+  if(lock)return;
+  let tr=-1;for(let r=ROWS-1;r>=0;r--)if(grid[r][c]===null){tr=r;break}
+  if(tr===-1){PD.toast("⚠️ That column is full! Pick another");PD.sfx.bad();return}
+  lock=true;const myRun=runId;const lvl=queue.shift();fillQueue();grid[tr][c]=lvl;moves++;PD.sfx.pop(lvl);
+  render(null,[tr,c]);await PD.sleep(150);
+  if(myRun!==runId)return;
+  let chain=0,pair;
+  while((pair=findPair())){
+    chain++;const[[ar,ac],[br,bc]]=pair,v=grid[ar][ac];
+    if(v===FRUITS.length-1){grid[ar][ac]=null;grid[br][bc]=null;score+=5000*chain;
+      document.getElementById("msg").textContent="💥 DOUBLE WATERMELON BONUS +"+PD.fmt(5000*chain)+"!";PD.celebrate(["🍉","💥","⭐"],18);}
+    else{grid[ar][ac]=v+1;grid[br][bc]=null;const pts=(v+2)*(v+2)*10*chain;score+=pts;PD.sfx.pop(v+2);
+      document.getElementById("msg").textContent=chain>1?"🔥 COMBO ×"+chain+"! +"+PD.fmt(pts):FRUITS[v]+"+"+FRUITS[v]+" → "+FRUITS[v+1]+" "+NAMES[v+1]+"! +"+PD.fmt(pts);
+      if(v+1===FRUITS.length-1&&!won){won=true;gravity();render([ar,ac]);await PD.sleep(300);if(myRun!==runId)return;onWin();}}
+    gravity();render([ar,ac]);await PD.sleep(210);
+    if(myRun!==runId)return;
+  }
+  if(!chain)document.getElementById("msg").textContent="";
+  PD.saveBest(GAME,score);render();lock=false;
+  if(!won&&grid[0].every(v=>v!==null)&&!findPair())onGameOver();
+}
+function finish(){if(mode==="daily")PD.markPlayed(GAME);PD.saveBest(GAME,score);stats()}
+function onWin(){finish();PD.celebrate(["🍉","🎉","⭐","🍒"],32);
+  PD.showModal("🍉","WATERMELON! You Win! 🎉","Score: <b>"+PD.fmt(score)+"</b> • Moves: "+moves+
+  "<br>Only a small % of players ever grow the watermelon!"+PD.challengeResultLine(score,beat)+
+  "<br>Keep playing for combo points, or share your glory 📲")}
+function onGameOver(){finish();let top=-1;grid.flat().forEach(v=>{if(v!==null&&v>top)top=v});PD.sfx.bad();
+  PD.showModal(FRUITS[Math.max(top,0)],"Board Full — Game Over!","Score: <b>"+PD.fmt(score)+"</b> • Moves: "+moves+
+  "<br>Biggest fruit: "+FRUITS[top]+" "+NAMES[top]+PD.challengeResultLine(score,beat)+
+  "<br>One more try? The watermelon is waiting 🍉")}
+addEventListener("keydown",e=>{const n=+e.key; if(n>=1&&n<=6)dropIn(n-1)});
+function shareText(){
+  let top=-1;grid.flat().forEach(v=>{if(v!==null&&v>top)top=v});
+  return "🍉 MergeMelon "+(mode==="daily"?"Daily #"+PD.dailyNumber():"Free Play")+"\nScore: "+PD.fmt(score)+
+   " | Moves: "+moves+" | Biggest: "+(top>=0?FRUITS[top]:"—")+" | 🔥"+PD.streak(GAME)+"\n\n"+
+   grid.map(r=>r.map(v=>v===null?"⬛":FRUITS[v]).join("")).join("\n")+"\n\nCan you grow the watermelon? 👇"}
+function challengeMe(){if(mode!=="daily"){PD.toast("☀️ Switch to Daily mode to create a fair, same-rules challenge");return} PD.challengeLink(score,currentSeed)}
+function doShare(){PD.share(shareText(),"MergeMelon Daily 🍉")}
+newGame();
+</script>
+</body>
+</html>

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Perfect Circle Daily ⭕ — How Perfect Is Your Circle?</title>
+<meta name="description" content="Draw one freehand circle and get scored. A new size target every day. 95%+ earns the halo!">
+<meta name="theme-color" content="#0f172a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Perfect Circle Daily ⭕ — How Perfect Is Your Circle?">
+<meta property="og:description" content="Draw one freehand circle and get scored. A new size target every day. 95%+ earns the halo!">
+<meta property="og:image" content="../assets/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Perfect Circle Daily ⭕ — How Perfect Is Your Circle?">
+<meta name="twitter:description" content="Draw one freehand circle and get scored. A new size target every day. 95%+ earns the halo!">
+<meta name="twitter:image" content="../assets/icon-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .canvasbox{background:#fff;border-radius:22px;padding:8px;box-shadow:var(--shadow)}
+  canvas#cv{display:block;width:100%;height:auto;border-radius:16px;background:#fafafa;touch-action:none;cursor:crosshair}
+  #scoreBig{font-size:54px;font-weight:900;line-height:1.05;color:#fde68a;text-align:center}
+  #verdict{font-size:17px;font-weight:900;text-align:center;margin-top:2px}
+  .ranks{background:#00000028;border:1px solid var(--line);border-radius:15px;padding:11px 14px;font-size:13px;line-height:1.75}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar" aria-label="Arcade navigation"><a class="back" href="../index.html">⬅ Arcade</a><span class="brand">🎮 Play<b>Daily10</b></span><button class="iconbtn" id="soundBtn" title="Sound">🔊</button></nav>
+  <main>
+  <header class="hero">
+    <div style="font-size:42px">⭕</div>
+    <h1>Perfect <span class="grad">Circle</span> Daily</h1>
+    <p class="tag">Draw a circle in <b>one stroke</b>. We grade its roundness.<br>95%+ = 😇 Halo Legend. 99%+ = …are you a robot?</p>
+  </header>
+  <noscript><p class="banner target">JavaScript is required to play this game. Please enable JavaScript and reload.</p></noscript>
+
+  <div id="challBanner"></div>
+  <div class="banner target" id="targetBox"></div>
+
+  <div class="stats">
+    <div class="stat"><b id="dayBest">—</b><span id="dayBestLabel">Today Best</span></div>
+    <div class="stat"><b id="allBest">—</b><span>All-Time</span></div>
+    <div class="stat"><b id="attempts">0</b><span>Tries</span></div>
+    <div class="stat"><b id="streak">🔥0</b><span>Streak</span></div>
+  </div>
+
+  <div class="canvasbox"><canvas id="cv" tabindex="0" role="img" aria-label="Drawing area. Draw one circle with a finger, mouse, or stylus." width="640" height="640"></canvas></div>
+
+  <div style="min-height:104px;margin-top:10px">
+    <div id="scoreBig">✏️</div>
+    <div id="verdict">Draw your circle in the box above!</div>
+    <div class="subtxt" id="detail">One smooth stroke — go all the way around, then lift your finger</div>
+  </div>
+
+  <div class="btns">
+    <button class="act primary" onclick="clearCanvas()">🔄 Try Again</button>
+    <button class="act green" onclick="doShare()">📲 Share Score + Image</button>
+    <button class="act ghost" onclick="PD.challengeLink(bestToday(),'circle-'+displayDate)">⚔️ Challenge a Friend</button>
+    <button class="act ghost" onclick="PD.whatsapp(shareText())">💬 WhatsApp</button>
+  </div>
+
+  <div class="ranks"><b>🏅 Rank Badges:</b><br>
+  🥔 Potato &lt;50% &nbsp;•&nbsp; 🥚 Egg 50–70% &nbsp;•&nbsp; 🌕 Moon 70–85%<br>
+  🎯 Sharpshooter 85–95% &nbsp;•&nbsp; 😇 <b>Halo Legend 95%+</b> &nbsp;•&nbsp; 🤖 Robot?! 99%+</div>
+
+  <details class="howto"><summary>🎮 How to Play (10 seconds)</summary>
+    <ul>
+      <li>Draw a circle with your finger or mouse in <b>one single stroke</b>.</li>
+      <li>Your score blends <b>roundness</b>, full 360° coverage, a <b>closed loop</b>, and matching <b>today's size target</b>.</li>
+      <li>The dashed pink circle after grading is the "true" circle closest to yours — compare!</li>
+      <li>Tip: slow and steady with a relaxed wrist beats fast and wobbly.</li>
+    </ul>
+  </details>
+  </main>
+  <footer>⏱️ Timing &amp; Skill • Game #3 of 10 • <a href="../index.html">Play the other 9 today →</a></footer>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="../assets/engine.js"></script>
+<script>
+const GAME="circle";
+const cv=document.getElementById("cv"),ctx=cv.getContext("2d"),W=cv.width;
+let pts=[],drawing=false,lastScore=null,attempts=0,activePointerId=null;
+const beat=PD.challengeBanner();
+/* A challenge link carries the challenger's DATE: you play their exact size target. */
+const seedParam=PD.challengeSeed();
+let seedDateMatch=typeof seedParam==="string"?seedParam.match(/^circle-(\d{4}-\d{2}-\d{2})$/):null;
+let displayDate=seedDateMatch?seedDateMatch[1]:PD.todayStr();
+let displayDayNum=PD.dailyNumberFor(displayDate);
+if(!Number.isFinite(displayDayNum)||new Date(displayDate+"T00:00:00Z").toISOString().slice(0,10)!==displayDate){
+  seedDateMatch=null; displayDate=PD.todayStr(); displayDayNum=PD.dailyNumberFor(displayDate);
+}
+const isPastChallenge=!!seedDateMatch&&displayDate!==PD.todayStr();
+const TARGETS=[{n:"BIG ⭕ — use most of the box!",r:.42},{n:"MEDIUM ⭕",r:.31},{n:"SMALL ⭕ — coin-sized, careful!",r:.19},{n:"BIG ⭕ again!",r:.40},{n:"MEDIUM ⭕",r:.29}];
+const target=TARGETS[((displayDayNum-1)%TARGETS.length+TARGETS.length)%TARGETS.length];
+document.getElementById("targetBox").textContent=(seedDateMatch?"⚔️ Challenge target #":"🎯 Today's target #")+displayDayNum+": "+target.n+(isPastChallenge?"  (from a friend's link; today's streak is unaffected)":"");
+/* Keep day-bests in ONE bounded map instead of one storage key per date.
+   The old per-date key is still read once as a legacy fallback. */
+const DAYBEST_KEY="pd_circle_daybest_map";
+const legacyDayKey=GAME+"_daybest_"+displayDate;
+function dayBestMap(){
+  try{ const parsed=JSON.parse(PD.lsGet(DAYBEST_KEY)||"{}");
+    return parsed && typeof parsed==="object" && !Array.isArray(parsed) ? parsed : {};
+  }catch(e){ return {}; }
+}
+const storedDayBest=()=>Math.max(+dayBestMap()[displayDate]||0,+PD.lsGet(legacyDayKey)||0);
+function saveStoredDayBest(score){
+  const map=dayBestMap(); delete map[displayDate]; map[displayDate]=score;
+  const kept={}; Object.keys(map).slice(-31).forEach(date=>{ const v=+map[date]; if(Number.isFinite(v)&&v>0)kept[date]=v; });
+  PD.lsSet(DAYBEST_KEY,JSON.stringify(kept));
+}
+const bestToday=()=>Math.max(storedDayBest(), lastScore??0); // always share the BEST, never a later weaker try
+
+function stats(){
+  document.getElementById("dayBestLabel").textContent=seedDateMatch?("Day #"+displayDayNum+" Best"):"Today Best";
+  document.getElementById("dayBest").textContent=storedDayBest()?storedDayBest().toFixed(1)+"%":"—";
+  const ab=PD.get(PD.bestKey(GAME));
+  document.getElementById("allBest").textContent=ab?ab.toFixed(1)+"%":"—";
+  document.getElementById("attempts").textContent=attempts;
+  document.getElementById("streak").textContent="🔥"+PD.streak(GAME);
+}
+function guide(){
+  ctx.clearRect(0,0,W,W);
+  ctx.save();ctx.strokeStyle="#ddd6fe";ctx.lineWidth=3;ctx.setLineDash([10,10]);
+  ctx.beginPath();ctx.arc(W/2,W/2,target.r*W,0,Math.PI*2);ctx.stroke();ctx.restore();
+  ctx.fillStyle="#a78bfa";ctx.font="700 21px system-ui";ctx.textAlign="center";
+  ctx.fillText("draw about this size",W/2,W/2);
+}
+function clearCanvas(){pts=[];guide();
+  document.getElementById("scoreBig").textContent="✏️";
+  document.getElementById("verdict").textContent="One more — rounder this time!";
+  document.getElementById("detail").textContent=(seedDateMatch?"This challenge day's":"Today's")+" best to beat: "+bestToday().toFixed(1)+"%";}
+function pos(e){const r=cv.getBoundingClientRect();if(!r.width||!r.height)return{x:W/2,y:W/2};return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*W/r.height}}
+cv.addEventListener("pointerdown",e=>{if(e.button>0||drawing)return;drawing=true;activePointerId=e.pointerId;pts=[pos(e)];try{cv.setPointerCapture?.(e.pointerId)}catch(err){}ctx.clearRect(0,0,W,W);PD.sfx.click();});
+cv.addEventListener("pointermove",e=>{if(!drawing||e.pointerId!==activePointerId)return;pts.push(pos(e));
+  ctx.strokeStyle="#7c3aed";ctx.lineWidth=7;ctx.lineCap="round";ctx.lineJoin="round";
+  ctx.beginPath();ctx.moveTo(pts[pts.length-2].x,pts[pts.length-2].y);ctx.lineTo(pts[pts.length-1].x,pts[pts.length-1].y);ctx.stroke();});
+cv.addEventListener("pointerup",e=>{if(e.pointerId!==activePointerId)return;activePointerId=null;if(drawing){drawing=false;grade()}});
+cv.addEventListener("pointercancel",e=>{if(e.pointerId!==activePointerId)return;activePointerId=null;drawing=false});
+
+function show(s,v,d){
+  document.getElementById("scoreBig").innerHTML=(s>=95?"😇<br>":"")+s.toFixed(1)+"%";
+  document.getElementById("verdict").textContent=v;
+  document.getElementById("detail").innerHTML=d;
+}
+/* Re-sample the stroke every ~6px of ARC LENGTH.
+   Raw pointer events pile up where the finger moves slowly, which would
+   secretly weight slow patches more than fast ones in centre/radius maths. */
+function resample(points,step=6){
+  if(points.length<2)return points;
+  const out=[points[0]];let carry=0;
+  for(let i=1;i<points.length;i++){
+    let a=points[i-1]; const b=points[i];
+    let d=Math.hypot(b.x-a.x,b.y-a.y);
+    while(carry+d>=step){
+      const t=(step-carry)/d, np={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};
+      out.push(np); a=np; d=Math.hypot(b.x-a.x,b.y-a.y); carry=0;
+      if(d===0)break;
+    }
+    carry+=d;
+  }
+  out.push(points[points.length-1]); return out;
+}
+function grade(){
+  const sampled=resample(pts);
+  if(sampled.length<24){show(0,"🥔 That's a potato!","Draw a bigger, complete loop");PD.sfx.bad();return}
+  let cx=0,cy=0;sampled.forEach(p=>{cx+=p.x;cy+=p.y});cx/=sampled.length;cy/=sampled.length;
+  const radii=sampled.map(p=>Math.hypot(p.x-cx,p.y-cy));
+  const meanR=radii.reduce((a,b)=>a+b,0)/radii.length;
+  if(meanR<35){show(0,"🔹 Too tiny!","Aim for today's target size");PD.sfx.bad();return}
+  const variance=radii.reduce((a,r)=>a+(r-meanR)*(r-meanR),0)/radii.length;
+  const cvRatio=Math.sqrt(variance)/meanR;
+  const bins=new Set(sampled.map(p=>Math.floor(((Math.atan2(p.y-cy,p.x-cx)+Math.PI)/(Math.PI*2))*36)));
+  const coverage=bins.size/36;
+  const gap=Math.hypot(pts[0].x-pts[pts.length-1].x,pts[0].y-pts[pts.length-1].y)/(2*meanR);
+  const closure=Math.max(0,1-gap*0.9);
+  const sizeScore=Math.max(0,1-Math.abs(1-meanR/(target.r*W))*0.55);
+  let score=100*Math.exp(-3.2*cvRatio)*(0.55+0.45*coverage)*(0.7+0.3*closure)*(0.85+0.15*sizeScore);
+  score=Math.min(99.9,Math.max(0,score));
+  ctx.save();ctx.strokeStyle="#f43f5e";ctx.lineWidth=3.5;ctx.setLineDash([8,8]);
+  ctx.beginPath();ctx.arc(cx,cy,meanR,0,Math.PI*2);ctx.stroke();ctx.restore();
+  if(score>=95){ctx.font="52px serif";ctx.textAlign="center";ctx.fillText("😇",cx,Math.max(52,cy-meanR-12))}
+  attempts++;lastScore=score;
+  if(score>storedDayBest())saveStoredDayBest(score);
+  PD.saveBest(GAME,score);
+  if(!isPastChallenge)PD.markPlayed(GAME); // a friend's old day mustn't fake today's streak
+  stats();
+  let v,d;
+  if(score>=99){v="🤖 ARE YOU A ROBOT?!";d="99%+ — virtually superhuman!";PD.celebrate(["⭕","🤖","⭐"],30)}
+  else if(score>=95){v="😇 HALO LEGEND!";d="95%+ — screenshot this masterpiece!";PD.celebrate(["⭕","😇","🎉"],26)}
+  else if(score>=85){v="🎯 Sharpshooter!";d="So close to the halo — one smoother stroke…";PD.sfx.great()}
+  else if(score>=70){v="🌕 Moon-like!";d="Good loop, slightly wobbly edges";PD.sfx.good()}
+  else if(score>=50){v="🥚 That's an egg";d="Slower, rounder, relax your wrist";PD.sfx.click()}
+  else{v="🥔 Potato Circle!";d="Everyone's first circle is a potato 😄 Try again";PD.sfx.bad()}
+  d+=PD.challengeResultLine(Math.round(score*10)/10,beat);
+  show(score,v,d);
+}
+function rankEmoji(s){return s>=99?"🤖":s>=95?"😇":s>=85?"🎯":s>=70?"🌕":s>=50?"🥚":"🥔"}
+function shareText(){const s=bestToday();
+  return "⭕ Perfect Circle Daily #"+displayDayNum+"\nMy circle: "+s.toFixed(1)+"% "+rankEmoji(s)+
+  "\n🎯 Target: "+target.n+"\nCan you beat 95% and earn the halo? 😇👇"}
+async function doShare(){
+  try{
+    const blob= await new Promise(r=>cv.toBlob(r,"image/png"));
+    if(!blob)throw new Error("no-image");
+    const file=new File([blob],"my-perfect-circle.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],text:shareText(),title:"Perfect Circle Daily ⭕"});return}
+  }catch(e){}
+  PD.share(shareText(),"Perfect Circle Daily ⭕");
+}
+guide();stats();
+</script>
+</body>
+</html>

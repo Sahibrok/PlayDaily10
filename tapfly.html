@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TapFly Daily 🚀 — Thread All 30 Gates!</title>
+<meta name="description" content="Tap to fly through the gates. A fresh 30-gate course every day — identical for the whole world. Can you finish it?">
+<meta name="theme-color" content="#0f172a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="TapFly Daily 🚀 — Thread All 30 Gates!">
+<meta property="og:description" content="Tap to fly through the gates. A fresh 30-gate course every day — identical for the whole world. Can you finish it?">
+<meta property="og:image" content="../assets/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TapFly Daily 🚀 — Thread All 30 Gates!">
+<meta name="twitter:description" content="Tap to fly through the gates. A fresh 30-gate course every day — identical for the whole world. Can you finish it?">
+<meta name="twitter:image" content="../assets/icon-512.png">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../assets/icon-192.png">
+<link rel="icon" href="../assets/icon-192.png">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  .gwrap{position:relative}
+  #hud{position:absolute;top:10px;left:0;right:0;display:flex;justify-content:center;gap:18px;font-weight:900;color:#fff;text-shadow:0 2px 6px #000c;pointer-events:none;font-size:16px}
+  .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+  .toolbar button{border:1px solid var(--line);background:var(--card);color:#fff;border-radius:12px;padding:11px;font-weight:900;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="topbar" aria-label="Arcade navigation"><a class="back" href="../index.html">⬅ Arcade</a><span class="brand">🎮 Play<b>Daily10</b></span><button class="iconbtn" id="soundBtn" title="Sound">🔊</button></nav>
+  <main>
+  <header class="hero">
+    <div style="font-size:42px">🚀</div>
+    <h1>Tap<span class="grad">Fly</span> Daily</h1>
+    <p class="tag"><b>Tap / Click / Space</b> to fly up. Let go to fall.<br>Thread today's <b>30 gates</b> to finish the course!</p>
+  </header>
+  <noscript><p class="banner target">JavaScript is required to play this game. Please enable JavaScript and reload.</p></noscript>
+
+  <div id="challBanner"></div>
+  <div class="modes">
+    <button id="mDaily" class="active" onclick="setMode('daily')">☀️ Daily Course #<span id="dNum"></span></button>
+    <button id="mFree" onclick="setMode('free')">♾️ Endless</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><b id="gates">0/30</b><span>Gates</span></div>
+    <div class="stat"><b id="score">0</b><span>Score</span></div>
+    <div class="stat"><b id="best">0</b><span>Best</span></div>
+    <div class="stat"><b id="streak">🔥0</b><span>Streak</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="gwrap">
+      <canvas class="game" id="cv" tabindex="0" role="img" aria-label="TapFly rocket game. Tap or press Space to fly through the gates." width="480" height="640"></canvas>
+      <div id="hud"><span id="hudGate"></span></div>
+    </div>
+    <div class="toolbar">
+      <button onclick="togglePause()" id="pauseBtn">⏸️ Pause</button>
+      <button onclick="newGame()">🔄 Restart</button>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="act green" onclick="doShare()">📲 Share Result</button>
+    <button class="act primary" onclick="newGame()">▶️ Fly Again</button>
+    <button class="act ghost" onclick="challengeMe()">⚔️ Challenge a Friend</button>
+    <button class="act ghost" onclick="PD.whatsapp(shareText())">💬 WhatsApp</button>
+  </div>
+
+  <details class="howto"><summary>🎮 How to Play (10 seconds)</summary>
+    <ul>
+      <li><b>Tap anywhere on the game</b> (or press Space) to flap upward. Gravity does the rest.</li>
+      <li>Fly through the <b>gap in every gate</b>. Touching a pipe, the ground, or the ceiling ends the run.</li>
+      <li>☀️ <b>Daily Course:</b> exactly 30 gates, generated from today's date — identical for every player on Earth. Finishers earn a time bonus!</li>
+      <li>♾️ <b>Endless:</b> survive as long as you can while the speed slowly rises.</li>
+      <li>Rhythm tip: small, steady taps beat big panicky ones. 🧘</li>
+    </ul>
+  </details>
+  </main>
+  <footer>🕹️ Arcade • Game #5 of 10 • <a href="../index.html">Play the other 9 today →</a></footer>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal">
+  <div class="big" id="ovEmoji">🚀</div><h2 id="ovTitle"></h2><p id="ovText"></p>
+  <button class="act green" onclick="doShare()">📲 Share Result</button>
+  <button class="act primary" onclick="PD.hideModal();newGame()">▶️ Fly Again</button>
+  <button class="act ghost" onclick="PD.hideModal()">👀 Close</button>
+</div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="../assets/engine.js"></script>
+<script>
+const GAME="tapfly", cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+const W=cv.width,H=cv.height,GAP=172,PW=74,SPACING=238,TOTAL=30;
+let mode="daily",state="ready",bird,gates,passed,score,speed,rng,lastTs,runSecs=0,finished=false,stars=[],currentSeed="";
+let beat=PD.challengeBanner(), challSeed=PD.challengeSeed();
+document.getElementById("dNum").textContent=PD.dailyNumber();
+
+function setMode(m){mode=m; beat=(m==="daily")?PD.challengeBanner():null; if(m!=="daily"){const cb=document.getElementById("challBanner"); if(cb)cb.className="banner";}document.getElementById("mDaily").classList.toggle("active",m==="daily");
+  document.getElementById("mFree").classList.toggle("active",m==="free");newGame();}
+function gapCenter(prev){
+  let c=140+rng()*(H-280);
+  if(prev!==null)c=Math.max(140,Math.min(H-140,prev+(c-prev)*0.62));
+  return c;
+}
+function newGame(){
+  currentSeed=(mode==="daily"&&challSeed)||(mode==="daily"?"tapfly-"+PD.todayStr():"tapfly-free-"+Date.now());
+  rng=PD.rngFrom(currentSeed);
+  bird={x:96,y:H/2,vy:0,r:16};
+  gates=[]; let prev=H/2;
+  const count=mode==="daily"?TOTAL:14;
+  for(let i=0;i<count;i++){prev=gapCenter(prev);gates.push({x:W+60+i*SPACING,c:prev,counted:false,n:i+1})}
+  stars=Array.from({length:70},()=>({x:rng()*W*3,y:rng()*H,s:rng()*2+0.6,v:12+rng()*25}));
+  passed=0;score=0;speed=168;state="ready";finished=false;runSecs=0;
+  document.getElementById("pauseBtn").textContent="⏸️ Pause";
+  PD.hideModal(); stats(); draw();
+}
+function stats(){
+  document.getElementById("gates").textContent=mode==="daily"?passed+"/"+TOTAL:passed;
+  document.getElementById("score").textContent=PD.fmt(score);
+  document.getElementById("best").textContent=PD.fmt(PD.getBest(GAME,mode));
+  document.getElementById("streak").textContent="🔥"+PD.streak(GAME);
+  document.getElementById("hudGate").textContent=state==="ready"?"👆 TAP TO START":(mode==="daily"?"🚀 "+passed+" / "+TOTAL+"":"🚀 "+passed);
+}
+function flap(){
+  if(state==="ready"){state="playing";lastTs=performance.now();requestAnimationFrame(loop)}
+  if(state==="playing"){bird.vy=-430;PD.sfx.pop(6)}
+}
+cv.addEventListener("pointerdown",e=>{if(e.button>0)return;e.preventDefault();if(state!=="paused")flap()});
+addEventListener("keydown",e=>{if(e.code==="Space"&&/^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName))return;if(e.code==="Space"||e.code==="ArrowUp"){e.preventDefault();if(state!=="paused")flap()}
+  if(e.code==="KeyP")togglePause()});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&state==="playing")togglePause()});
+function togglePause(){
+  if(state==="playing"){state="paused";document.getElementById("pauseBtn").textContent="▶️ Resume";draw()}
+  else if(state==="paused"){state="playing";document.getElementById("pauseBtn").textContent="⏸️ Pause";lastTs=performance.now();requestAnimationFrame(loop)}
+}
+function loop(ts){
+  if(state!=="playing")return;
+  const dt=Math.min(0.033,(ts-lastTs)/1000); lastTs=ts;
+  step(dt); draw(); stats();
+  if(state==="playing")requestAnimationFrame(loop);
+}
+function step(dt){
+  runSecs+=dt;
+  speed=Math.min(228,168+passed*1.8);
+  bird.vy+=1420*dt; bird.y+=bird.vy*dt;
+  gates.forEach(g=>g.x-=speed*dt);
+  while(gates.length&&gates[0].x<-140)gates.shift();
+  stars.forEach(s=>{s.x-=s.v*dt;if(s.x<-4)s.x+=W*3});
+  for(const g of gates){
+    if(!g.counted&&g.x+PW<bird.x){g.counted=true;passed++;score+=100;PD.sfx.good();
+      if(mode==="daily"&&passed>=TOTAL)return onFinish();
+      if(mode!=="daily"){const last=gates[gates.length-1];gates.push({x:last.x+SPACING,c:gapCenter(last.c),counted:false,n:last.n+1})}}
+    // collision (circle vs two pipe rects)
+    if(bird.x+bird.r>g.x&&bird.x-bird.r<g.x+PW){
+      if(bird.y-bird.r<g.c-GAP/2||bird.y+bird.r>g.c+GAP/2)return crash();
+    }
+  }
+  if(bird.y-bird.r<=0||bird.y+bird.r>=H)return crash();
+}
+function endAttempt(){PD.saveBest(GAME,score,mode);if(mode==="daily")PD.markPlayed(GAME);stats()}
+function crash(){
+  state="dead"; endAttempt(); PD.sfx.bad(); draw();
+  const pct=mode==="daily"?Math.round(passed/TOTAL*100):null;
+  PD.showModal("💥","Crashed at Gate "+(passed+1)+(mode==="daily"?" of "+TOTAL:""),
+   "Gates cleared: <b>"+passed+"</b> • Score: <b>"+PD.fmt(score)+"</b>"+
+   (pct!==null?"<br>Course completed: "+pct+"%":"")+PD.challengeResultLine(score,beat)+
+   "<br>Flight tip: aim for the center of the NEXT gap early, not late.");
+}
+function onFinish(){
+  finished=true; state="won";
+  const secs=Math.round(runSecs);
+  const bonus=Math.max(0,600-secs*4); score+=bonus;
+  endAttempt(); PD.celebrate(["🚀","🏁","⭐"],30); draw();
+  PD.showModal("🏁","COURSE COMPLETE! 🏆",
+   "All <b>"+TOTAL+" gates</b> in "+secs+"s • Time bonus: +"+bonus+"<br>Final score: <b>"+PD.fmt(score)+"</b>"+
+   PD.challengeResultLine(score,beat)+"<br>You are officially a TapFly ace 😎");
+}
+function draw(){
+  const grd=ctx.createLinearGradient(0,0,0,H); grd.addColorStop(0,"#0b1e4b"); grd.addColorStop(.6,"#153a7a"); grd.addColorStop(1,"#7c2d12");
+  ctx.fillStyle=grd; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#ffffffcc"; stars.forEach(s=>{if(s.x<W*1.2){ctx.beginPath();ctx.arc(s.x%W,s.y,s.s,0,7);ctx.fill()}});
+  // sun glow
+  const sun=ctx.createRadialGradient(W-80,H-120,8,W-80,H-120,130);
+  sun.addColorStop(0,"#fde68add"); sun.addColorStop(1,"#f59e0b00"); ctx.fillStyle=sun; ctx.fillRect(0,0,W,H);
+  // gates
+  gates.forEach((g,i)=>{
+    if(g.x>W+90||g.x+PW<-10)return;
+    const topH=g.c-GAP/2, botY=g.c+GAP/2;
+    const pg=ctx.createLinearGradient(g.x,0,g.x+PW,0);
+    pg.addColorStop(0,"#16a34a");pg.addColorStop(.45,"#4ade80");pg.addColorStop(1,"#15803d");
+    ctx.fillStyle=pg;
+    ctx.fillRect(g.x,0,PW,topH); ctx.fillRect(g.x-5,topH-26,PW+10,26);
+    ctx.fillRect(g.x,botY,PW,H-botY); ctx.fillRect(g.x-5,botY,PW+10,26);
+    ctx.strokeStyle="#052e16aa";ctx.lineWidth=2;
+    ctx.strokeRect(g.x,0,PW,topH);ctx.strokeRect(g.x,botY,PW,H-botY);
+    if(g.n%5===0){ctx.fillStyle="#fff";ctx.font="900 17px system-ui";ctx.textAlign="center";ctx.fillText(g.n,g.x+PW/2,botY+44)}
+  });
+  // ground line
+  ctx.fillStyle="#00000055"; ctx.fillRect(0,H-6,W,6);
+  // rocket
+  ctx.save(); ctx.translate(bird.x,bird.y);
+  ctx.rotate(Math.max(-0.5,Math.min(0.8,bird.vy/900)));
+  ctx.font="36px serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(state==="dead"?"💥":"🚀",0,0); ctx.restore();
+  if(state==="ready"){ctx.fillStyle="#ffffff";ctx.font="900 25px system-ui";ctx.textAlign="center";
+    ctx.fillText("👆 TAP TO FLY",W/2,H/2-95);
+    ctx.font="700 16px system-ui";ctx.fillText(mode==="daily"?"Clear all 30 gates of today’s course!":"How far can you go?",W/2,H/2-62);}
+  if(state==="paused"){ctx.fillStyle="#00000088";ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#fff";ctx.font="900 32px system-ui";ctx.textAlign="center";ctx.fillText("⏸️ PAUSED",W/2,H/2);}
+}
+function shareText(){
+  return "🚀 TapFly "+(mode==="daily"?"Daily Course #"+PD.dailyNumber():"Endless")+"\n"+
+   (finished?"🏁 COURSE COMPLETE! All "+TOTAL+" gates!":"Gates cleared: "+passed+(mode==="daily"?"/"+TOTAL:""))+
+   "\nScore: "+PD.fmt(score)+" • 🔥"+PD.streak(GAME)+"\n\nSame course, same gates — out-fly me! 👇"}
+function challengeMe(){if(mode!=="daily"){PD.toast("☀️ Switch to Daily mode to create a fair, same-rules challenge");return} PD.challengeLink(score,currentSeed)}
+function doShare(){PD.share(shareText(),"TapFly Daily 🚀")}
+newGame();
+</script>
+</body>
+</html>
